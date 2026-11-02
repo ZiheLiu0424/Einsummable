@@ -1,0 +1,102 @@
+# SConstruct for the pairwise-squared-distance kernel harness.
+#
+#   scons                         # build ./bench with -O3 -march=native, auto-detect BLAS
+#   scons BLAS=/opt/openblas      # BLAS install prefix (expects include/ and lib/ or lib64/)
+#   scons BLASLIB=-lflexiblas     # force a specific linker flag for the BLAS library
+#   scons NOBLAS=1                # build without BLAS (no full-matrix check, no --ceiling)
+#   scons OPT="-O2 -mavx2 -mfma"  # override optimization flags
+#   scons CC=clang
+#   scons -c                      # clean
+#
+# Every src/kernels/*.c is compiled and linked automatically.  k0_naive.c gets
+# -fno-tree-vectorize in addition, so the baseline stays scalar.
+
+import os
+
+vars = Variables(None, ARGUMENTS)
+vars.Add('CC', 'C compiler', os.environ.get('CC', 'gcc'))
+vars.Add('OPT', 'Optimization flags', '-O3 -march=native')
+vars.Add('BLAS', 'BLAS install prefix (include/ + lib/ or lib64/)', '')
+vars.Add('BLASLIB', 'Explicit linker flag(s) for the BLAS library, e.g. -lflexiblas', '')
+vars.Add(BoolVariable('NOBLAS', 'Build without any BLAS library', False))
+
+env = Environment(variables=vars, ENV=os.environ)
+Help(vars.GenerateHelpText(env))
+
+env.Append(CCFLAGS=Split(env['OPT']) + ['-std=gnu11', '-Wall', '-Wextra', '-g'],
+           CPPPATH=['include'],
+           LIBS=['m', 'dl'])
+
+if env['BLAS']:
+    p = env['BLAS']
+    env.Append(CPPPATH=[os.path.join(p, 'include'), os.path.join(p, 'include', 'openblas')],
+               LIBPATH=[os.path.join(p, 'lib'), os.path.join(p, 'lib64')],
+               RPATH=[os.path.join(p, 'lib'), os.path.join(p, 'lib64')])
+
+# ---------------------------------------------------------------- BLAS detect
+def try_link_blas(conf, flags, header):
+    """Return True if a program calling cblas_dgemm links with the given -l flag(s).
+
+    The libraries go into LIBS (not LINKFLAGS) so they are placed after the
+    object files; with --as-needed, which Ubuntu's gcc enables by default, a
+    library named before the objects is silently dropped."""
+    src = ('#include <%s>\n'
+           'int main(void){ double a[1]={1},b[1]={1},c[1]={0};'
+           ' cblas_dgemm(CblasRowMajor,CblasNoTrans,CblasNoTrans,1,1,1,1.0,a,1,b,1,0.0,c,1);'
+           ' return (int)c[0]-1; }\n') % header
+    libs = []
+    for f in Split(flags):
+        libs.append(f[2:] if f.startswith('-l') else f)   # '-lfoo' -> 'foo', '-l:x.so.0' -> ':x.so.0'
+    saved = list(conf.env['LIBS'])
+    conf.env.Append(LIBS=libs)
+    ok = conf.TryLink(src, '.c')
+    if not ok:
+        conf.env.Replace(LIBS=saved)
+    return ok
+
+if not env.GetOption('clean') and not env.GetOption('help'):
+    if env['NOBLAS']:
+        print('*** NOBLAS=1: building without BLAS. Full-matrix check and --ceiling disabled.')
+    else:
+        conf = Configure(env, custom_tests={})
+        header = None
+        if conf.CheckCHeader('cblas.h'):
+            header = 'cblas.h'
+        elif conf.CheckCHeader('openblas/cblas.h'):
+            header = 'openblas/cblas.h'
+            conf.env.Append(CPPDEFINES=['HAVE_OPENBLAS_CBLAS_H'])
+        if header is None:
+            print('*** No cblas.h found. Install openblas-devel / libopenblas-dev, pass BLAS=/prefix, '
+                  'or build with NOBLAS=1.')
+            Exit(1)
+        if env['BLASLIB']:
+            candidates = [env['BLASLIB']]
+        else:
+            # Order matters: prefer a direct OpenBLAS link (so openblas_set_num_threads
+            # is visible), then the RHEL/Fedora dev-symlink-less case, then FlexiBLAS.
+            candidates = ['-lopenblas', '-l:libopenblas.so.0', '-lflexiblas', '-lopenblaso', '-lblas']
+        found = None
+        for c in candidates:
+            if try_link_blas(conf, c, header):
+                found = c
+                break
+        if found is None:
+            print('*** cblas.h found but no library linked cblas_dgemm. Tried: %s' % ', '.join(candidates))
+            print('    Pass BLASLIB="-l<name>" explicitly, or NOBLAS=1.')
+            Exit(1)
+        print('*** BLAS: <%s> + %s' % (header, found))
+        conf.env.Append(CPPDEFINES=['HAVE_BLAS'])
+        env = conf.Finish()
+
+# ---------------------------------------------------------------- sources
+core = ['src/main.c', 'src/util.c', 'src/check.c', 'src/blas_impl.c']
+objs = [env.Object(s) for s in core]
+
+for src in sorted(Glob('src/kernels/*.c'), key=lambda f: f.name):
+    if src.name == 'k0_naive.c':
+        objs.append(env.Object(src, CCFLAGS=env['CCFLAGS'] + ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']))
+    else:
+        objs.append(env.Object(src))
+
+bench = env.Program('bench', objs)
+Default(bench)
