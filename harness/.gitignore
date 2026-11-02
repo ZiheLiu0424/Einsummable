@@ -1,0 +1,9 @@
+bench
+*.o
+.sconsign.dblite
+.sconf_temp/
+config.log
+__pycache__/
+*.csv
+*.png
+*.pdf
