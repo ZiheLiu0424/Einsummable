@@ -11,10 +11,12 @@
 void   kernel_naive(int, int, int, const double *, const double *, double *);
 double kernel_naive_cost(int, int, int);
 void   kernel_k1(int, int, int, const double *, const double *, double *);
+void   kernel_k2(int, int, int, const double *, const double *, double *);
 
 const kernel_t KERNELS[] = {
     { "k0",   kernel_naive,          0, kernel_naive_cost, "naive direct evaluation, scalar, j >= i only" },
     { "k1",   kernel_k1,             1, NULL,              "YOUR FIRST RUNG (template: fills NaN)" },
+    { "k2",   kernel_k2,             0, NULL,              "Y=XM, row norms, upper-tri Gram + fused clamp; plain loops" },
     /* add yours here */
 
     /* The vendor-library implementation, for comparison.  Keep it last. */
