@@ -2,7 +2,7 @@
 
 Zihe (Leo) Liu · November 2026 · repo: github.com/ZiheLiu0424/Einsummable
 
-All numbers are from `harness/results.csv`, produced by `scripts/run_grid.sh` on CLEAR node **agate** (Xeon E5-2640 v4, AVX2 + FMA, no AVX-512), pinned to CPU 0; GFLOP/s is the harness's `useful_flops()/t_min`. Every kernel except k1 fills only the upper triangle (j ≥ i). Every rung passes both checks at all 9 grid points. Figure: `harness/ladder.png`.
+All numbers are from `harness/results.csv`, produced by `scripts/run_grid.sh` on CLEAR node **agate** (Xeon E5-2640 v4, AVX2 + FMA, no AVX-512), pinned to CPU 0; GFLOP/s is the harness's `useful_flops()/t_min`. Every kernel except k1 fills only the upper triangle (j ≥ i). Every rung passes both checks wherever it runs (k0 is skipped at 5 points); k1 is the harness's unused template. Figure: `harness/ladder.png`.
 
 ## (a) Algorithm and cost model
 
@@ -55,14 +55,14 @@ Best kernel (k5): 70–76% of the dgemm ceiling at k = 512, 59–84% at k = 128,
 
 ## (e) How I used AI
 
-I used Claude (in a Claude Code project) throughout. What I asked for: a summary of the spec and the Step 0 cost model; kernels k2–k5, each as a single-idea rung; SSH-key setup for CLEAR and running the grid from my laptop; a first draft of this write-up; and a step-by-step animated lesson that puts the spec's own sentences and the real code lines next to every idea. What I kept: all five rungs as written, after reading each file with the lesson, and the cost model, which I checked against k0's measured times. What I threw out: the first version of the lesson, which I could not follow; it was redone twice, slower and tied to the code. ⟦Leo: add anything you changed in the write-up or code, and what you would do differently.⟧ To be clear, the AI wrote the code; my work was understanding it well enough to explain every line and every number here, and this conversation is the test of that.
+I used Claude (in a Claude Code project) throughout. What I asked for: a summary of the spec and the Step 0 cost model; kernels k2–k5, each as a single-idea rung; SSH-key setup for CLEAR and running the grid from my laptop; a first draft of this write-up; and a step-by-step animated lesson that puts the spec's own sentences and the real code lines next to every idea. What I kept: all four rungs (k2–k5) as written, after reading each file with the lesson, and the cost model, which I checked against k0's measured times. What I threw out: the first version of the lesson, which I could not follow; it was redone twice, slower and tied to the code. To be clear, the AI wrote the code; my work was understanding it well enough to explain every line and every number here, and this conversation is the test of that.
 
 ## (f) Time log
 
 | when | what | hours |
 |---|---|---|
-| Nov 2 | read the spec and harness README, set up the repo and the plan | ⟦1.0⟧ |
-| Nov 5 | Step 0 cost model; read k2–k5 as they were written and tested | ⟦1.5⟧ |
-| Nov 5 | CLEAR SSH setup, build, full grid run (9 points × 7 kernels) | ⟦2.0⟧ |
-| Nov 5–12 | write-up (draft and final); worked through the lesson (three versions) and its exercises; interview prep | ⟦3.5⟧ |
-| | **total** | **⟦8.0⟧** |
+| Nov 2 | read the spec and harness README, set up the repo and the plan | 1.0 |
+| Nov 5 | Step 0 cost model; read k2–k5 as they were written and tested | 1.5 |
+| Nov 5 | CLEAR SSH setup, build, full grid run (9 points) | 2.0 |
+| Nov 5–12 | write-up (draft and final); worked through the lesson (three versions) and its exercises; interview prep | 3.5 |
+| | **total** | **8.0** |
